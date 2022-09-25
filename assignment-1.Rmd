@@ -1,6 +1,6 @@
 ---
 title: "Assignment 1 - The tidyverse"
-author: "FILL IN YOUR FULL NAME"
+author: "siddharth-padmanabhan"
 date: "`r format(Sys.time(), '%B %d, %Y | %H:%M:%S | %Z')`"
 output:
   html_document:
@@ -30,7 +30,9 @@ knitr::opts_chunk$set(echo = TRUE,
 ***
 
 ```{r, include = T}
-# LOAD THE PACKAGES YOU ARE USING IN THIS CODE CHUNK library(nameofpackage)
+library(haven)
+library(tidyr)
+library(dplyr)
 ```
 
 <br>
