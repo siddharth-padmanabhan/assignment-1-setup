@@ -33,6 +33,12 @@ knitr::opts_chunk$set(echo = TRUE,
 library(haven)
 library(tidyr)
 library(dplyr)
+library(legislatoR)
+library(tibble)
+library(descr)
+library(ggplot2)
+library(magrittr)
+library(lubridate)
 ```
 
 <br>
@@ -68,31 +74,82 @@ The following tasks will be based on data from the `core` and `political` tables
 a) What's the overall share of male legislators in the entire dataset? [1 point]
 
 ```{r}
-# YOUR CODE HERE
+#legislatoR::cld_content()
+coredf <- get_core(legislature = "irl")
+poldf <- get_political(legislature = "irl")
+
+#coredf %>% count(sex) 
+
+coredf_a <- coredf[!is.na(coredf$sex), ]
+
+coredf_a %>% 
+    group_by(sex) %>% 
+    summarise(Count = n(), Percent = round(((n()/nrow(coredf_a))*100),2) )
+
+#There's a total of 1408 observations for legislators in the dataset, but 4 of them had invalid or unavailable information about the 'sex' variable. Therefore, we reduce it to 1404 observacations and arrive at the above table. 
+
 ```
 
 b) How many (both in absolute and relative terms) legislators died in the same place they were born in? [1 point]
 
 ```{r}
-# YOUR CODE HERE
+coredf_b <- coredf[!is.na(coredf$birthplace), ]
+coredf_b <- coredf_b[!is.na(coredf_b$deathplace), ]
+
+coredf_b %>% mutate(sameplace = ifelse(coredf_b$birthplace == coredf_b$deathplace, "Same Place", "Different places")) %>% 
+  group_by(sameplace) %>% 
+  summarise(Count = n()) %>% 
+  mutate(percent = round(((Count/sum(Count))*100),2))
+
+#We eliminate the NAs for the key variables here: birthplace and deathplace, but that removes a significant portion of the dataset and we are left with only 172 observations. The remaining observations are displayed in the above table. 
 ```
 
 c) Create a new variable `age_at_death` that reports the age at which legislators died. Then, plot the distribution of that variable for the entire dataset. [2 points]
 
 ```{r}
-# YOUR CODE HERE
+coredf_c <- coredf[!is.na(coredf$birth), ]
+coredf_c <- coredf_c[!is.na(coredf_c$death), ]
+
+coredf_c <- coredf_c %>%
+  mutate(age_at_death = (coredf_c$death - coredf_c$birth)/365) %>% 
+  filter(age_at_death>=0)
+
+coredf_c %>%
+  ggplot(aes(x = age_at_death)) +
+  geom_histogram(bins = 30, fill = "#cc0343") +
+  labs(title = "Frequency Distribution of Legislator Age at death",
+       x = "Age at death",
+       y = "Number of legislators") +
+  theme_minimal()
+
 ```
 
 d) What is the most frequent birthday in your sample (e.g., “January 15")? [2 points]
 
 ```{r}
-# YOUR CODE HERE
+coredf_d <- coredf[!is.na(coredf$birth), ]
+
+freq_hbd <- 
+  function(birthdata) {
+  uniquehbd <- unique(birthdata)
+  tab <- tabulate(match(birthdata, uniquehbd))
+  uniquehbd[tab == max(tab)]
+  }
+
+freq_hbd(coredf_d$birth)
+
+#The most frequent birthday in the sample, January 1st, 1900, is displayed above by finding the mode of the birthdates information. 
 ```
 
 e) Generate a table that provides the 5 legislators with the longest names (in terms of number of characters, ignoring whitespace). [2 points]
 
 ```{r}
-# YOUR CODE HERE
+coredf$namelength <- nchar(coredf$name)
+
+coredf %>%     
+  arrange(desc(namelength)) %>% 
+  slice(1:5)
+
 ```
 
 <br>
@@ -104,17 +161,67 @@ e) Generate a table that provides the 5 legislators with the longest names (in t
 a) Using data from all sessions, provide a plot that shows the share of male legislators by session! [3 points]
 
 ```{r}
-# YOUR CODE HERE
+coredf_2a <- coredf[!is.na(coredf$sex), ]
+
+coredf_2a <- coredf_2a %>% mutate(pageid = as.numeric(pageid))
+poldf_2a <- poldf %>% mutate(pageid = as.numeric(pageid))
+
+combdf <-
+  left_join(poldf_2a,
+            coredf_2a %>% dplyr::select(pageid, sex, name),
+            by = "pageid")
+
+ggplot(combdf, mapping = aes(x = session)) +
+        geom_bar(aes(fill = sex),
+                  position = "dodge") +
+    labs(title = "Share of Male Legislators at Sessions",
+       x = "Sessions",
+       y = "Number of legislators") +
+  theme_minimal()
 ```
 
 b) Explore another relation of variables in the dataset. Your analysis should (i) use data from both the `core` and the `political` table and (ii) feature data from several sessions. Also, offer a brief description and interpretation of your findings! [5 points]
 
 ```{r}
-# YOUR CODE HERE
+
+coredf_2b <- coredf[!is.na(coredf$sex), ]
+
+combidf <-
+  left_join(poldf,
+            coredf_2b %>% dplyr::select(pageid, birth,sex),
+            by = "pageid")
+
+combidf$birth_date <- as.Date(combidf$birth)
+#class(combidf$birth_date)
+combidf$session_start_date <- as.Date(combidf$session_start)
+#class(combidf$session_start_date)
+
+combidf <- combidf %>% 
+  mutate(age_session = round((combidf$session_start_date - combidf$birth_date)/365))
+
+combidf$age_session <- as.numeric(combidf$age_session)
+
+finaldf <- combidf %>%
+  group_by(session,sex) %>%
+  summarize(mean_age = round(mean(age_session, na.rm = T)), .groups = 'drop') %>% 
+  drop_na()
+
+#finaldf %>% pivot_wider(names_from=sex, values_from=mean_age)
+
+ggplot(data=finaldf, 
+       aes(x=session, y=mean_age, fill=sex)) +
+    geom_bar(stat="identity", position=position_dodge()) +
+   labs(title = "Mean Age of Legislators by Gender Across Sessions",
+       x = "Sessions",
+       y = "Average Age") +
+  theme_minimal()
+
+
+
 ```
 
 <div class = "answer">
-YOUR ANSWER SHOULD GO HERE
+We analyse the mean age of legislators by gender, across all the sessions. We see that in the earlier sessions, the average age of women was typically higher than that of the men. From around session 15 onwards, this trend is reversed and the mean age of the men is higher for most of the rest of the data set. Around session 30, though, parity is restored and the mean age seem to be quite close to each other. 
 </div>
 
 <br>
